@@ -4,7 +4,12 @@ from fastapi import FastAPI, File, HTTPException, Security, UploadFile
 from fastapi.security import APIKeyHeader
 
 
-app = FastAPI(title="PDF Table Extractor")
+app = FastAPI(
+    title="Nexus Extract API",
+    description="Enterprise-grade structured data extraction for financial and legal documents.",
+    version="1.0.0",
+    docs_url="/" 
+)
 API_KEY = "pay_me_123"
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
@@ -17,7 +22,7 @@ def table_key(table):
     return (round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1))
 
 
-@app.get("/")
+@app.get("/health")
 def home():
     return {"status": "The engine is running!"}
 
