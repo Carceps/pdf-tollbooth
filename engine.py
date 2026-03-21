@@ -16,7 +16,7 @@ app = FastAPI(
 )
 
 stripe.api_key = (
-    "sk_test_51TDVosRiuspwWvgHcgKJDvoRe88gMA2UHTe2GhDdSBVtZgSdHawm9Y7A9EhGZCitLnI5QuDPMRgJbnU2zZhNvkAo00DoMUssAs"
+    "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"
 )
 
 # Maps API key -> label (e.g. role or customer id). Webhook adds new keys after checkout.
