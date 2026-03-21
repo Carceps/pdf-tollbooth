@@ -17,6 +17,11 @@ def table_key(table):
     return (round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1))
 
 
+@app.get("/")
+def home():
+    return {"status": "The engine is running!"}
+
+
 @app.post("/extract")
 async def extract(
     file: UploadFile = File(...),
