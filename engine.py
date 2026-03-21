@@ -1,6 +1,10 @@
+import json
+import secrets
+
 import fitz  # PyMuPDF
+import stripe
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, Security, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, Security, UploadFile
 from fastapi.security import APIKeyHeader
 
 
@@ -10,7 +14,14 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/" 
 )
-API_KEY = "pay_me_123"
+
+stripe.api_key = (
+    "sk_test_51TDVosRiuspwWvgHcgKJDvoRe88gMA2UHTe2GhDdSBVtZgSdHawm9Y7A9EhGZCitLnI5QuDPMRgJbnU2zZhNvkAo00DoMUssAs"
+)
+
+# Maps API key -> label (e.g. role or customer id). Webhook adds new keys after checkout.
+VALID_API_KEYS = {"pay_me_123": "admin"}
+
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
 
@@ -36,7 +47,7 @@ async def extract(
     Accept a PDF upload, scan every page, and extract only strict vector-lined
     tables (strategy="lines"). Return extracted table data as JSON.
     """
-    if api_key != API_KEY:
+    if not api_key or api_key not in VALID_API_KEYS:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     if file.content_type != "application/pdf":
@@ -93,6 +104,37 @@ async def extract(
         "total_tables_extracted": total_tables_extracted,
         "tables": extracted_tables,
     }
+
+
+@app.post("/webhook")
+async def stripe_webhook(request: Request):
+    """
+    Stripe webhook: on successful checkout, issue a new API key for the customer email.
+    """
+    raw_body = await request.body()
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+        event = stripe.Event.construct_from(payload, stripe.api_key)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid webhook payload: {exc}") from exc
+
+    if event.type == "checkout.session.completed":
+        session = event.data.object
+        customer_email = getattr(session, "customer_email", None)
+        if not customer_email:
+            details = getattr(session, "customer_details", None)
+            if details is not None:
+                customer_email = getattr(details, "email", None)
+
+        new_api_key = secrets.token_hex(12)
+        VALID_API_KEYS[new_api_key] = customer_email or "unknown"
+
+        print(
+            f"Stripe checkout completed: issued API key for {customer_email!r} "
+            f"(key stored in VALID_API_KEYS)."
+        )
+
+    return {"received": True}
 
 
 if __name__ == "__main__":
