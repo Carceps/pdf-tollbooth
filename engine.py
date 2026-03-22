@@ -1,14 +1,17 @@
 import json
+import os
 import secrets
+import smtplib
 import sqlite3
 from contextlib import asynccontextmanager
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
 import fitz  # PyMuPDF
 import stripe
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File, Security
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Security, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,6 +61,38 @@ def persist_api_key_from_webhook(key: str, label: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def send_api_key_email(recipient_email: str | None, api_key: str) -> None:
+    """
+    Send the issued API key to the customer via Gmail SMTP.
+    Requires GMAIL_ADDRESS and GMAIL_APP_PASSWORD environment variables.
+    """
+    gmail_address = os.getenv("GMAIL_ADDRESS")
+    gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
+    if not gmail_address or not gmail_app_password:
+        print(
+            "WARNING: GMAIL_ADDRESS or GMAIL_APP_PASSWORD is not set; "
+            "skipping API key email delivery."
+        )
+        return
+
+    if not recipient_email:
+        print("WARNING: No recipient email address; skipping API key email delivery.")
+        return
+
+    message = EmailMessage()
+    message["Subject"] = "Your Nexus Extract API Key"
+    message["From"] = gmail_address
+    message["To"] = recipient_email
+    message.set_content(
+        f"Your Nexus Extract API key:\n\n{api_key}\n\n"
+        f"Documentation:\nhttps://pdf-tollbooth.onrender.com/docs\n"
+    )
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(gmail_address, gmail_app_password)
+        smtp.send_message(message)
 
 
 @asynccontextmanager
@@ -197,7 +232,7 @@ async def landing_page():
         <div class="container">
             <h1>Nexus Extract API</h1>
             <p>Enterprise-grade PDF table extraction. Convert messy, unstructured PDF documents into perfectly clean, machine-readable JSON instantly.</p>
-            <a href="YOUR_STRIPE_LINK_HERE" class="btn">Get API Access - $49</a>
+            <a href="https://buy.stripe.com/4gM8wP9J16HCgmxcas6EU03" class="btn">Get API Access - $49</a>
             <a href="/docs" class="docs-link">View API Documentation &rarr;</a>
         </div>
     </body>
@@ -326,6 +361,8 @@ async def stripe_webhook(request: Request):
         )
 
         persist_api_key_from_webhook(new_api_key, customer_email or "unknown")
+
+        send_api_key_email(customer_email, new_api_key)
 
     return {"received": True}
 
