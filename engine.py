@@ -8,7 +8,8 @@ from typing import Any
 import fitz  # PyMuPDF
 import stripe
 import uvicorn
-from fastapi import Depends, FastAPI, File, HTTPException, Request, Security, UploadFile
+from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File, Security
+from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -172,14 +173,37 @@ class ExtractResponse(BaseModel):
     )
 
 
-@app.get("/")
-def root_health():
-    """Service health and identity for load balancers and uptime checks."""
-    return {
-        "service": "Nexus Extract API",
-        "status": "Operational",
-        "version": "1.0.0",
-    }
+@app.get("/", response_class=HTMLResponse)
+async def landing_page():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nexus Extract API</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #111; color: #fff; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+            .container { max-width: 600px; padding: 40px; background: #222; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid #333; }
+            h1 { font-size: 2.5em; margin-bottom: 10px; background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            p { font-size: 1.1em; color: #aaa; margin-bottom: 30px; line-height: 1.5; }
+            .btn { display: inline-block; padding: 15px 30px; font-size: 1.2em; font-weight: bold; color: #111; background: #00C9FF; text-decoration: none; border-radius: 8px; transition: 0.3s; }
+            .btn:hover { background: #92FE9D; transform: translateY(-2px); }
+            .docs-link { display: block; margin-top: 20px; color: #666; text-decoration: none; font-size: 0.9em; }
+            .docs-link:hover { color: #fff; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Nexus Extract API</h1>
+            <p>Enterprise-grade PDF table extraction. Convert messy, unstructured PDF documents into perfectly clean, machine-readable JSON instantly.</p>
+            <a href="YOUR_STRIPE_LINK_HERE" class="btn">Get API Access - $49</a>
+            <a href="/docs" class="docs-link">View API Documentation &rarr;</a>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
 
 
 @app.post(
